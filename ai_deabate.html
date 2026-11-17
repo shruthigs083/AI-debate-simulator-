@@ -1,0 +1,59 @@
+import streamlit as st
+import os
+from dotenv import load_dotenv
+from google import genai
+
+load_dotenv()
+API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Create Gemini client once
+if "client" not in st.session_state:
+    st.session_state.client = genai.Client(api_key=API_KEY)
+
+st.title("🤖🔥 AI Debate Club")
+
+topic = st.text_input("Enter your debate topic:")
+side = st.radio("Which side are YOU arguing?", ["Pro", "Con"])
+
+# Session history
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# Start the debate
+if st.button("Start Debate") and topic:
+    system_instruction = f"""
+You are the AI debater. The user argues '{side}' on the topic '{topic}'.
+You must always argue the opposite side with fun, exaggerated logic.
+Respond with your arguments.
+"""
+    st.session_state.history = [{"role": "system", "content": system_instruction}]
+    st.success("Debate started! Enter your arguments below.")
+
+# User enters an argument
+user_arg = st.text_input("Your argument:")
+
+if st.button("Send Argument") and user_arg and st.session_state.history:
+    # Add the user argument
+    st.session_state.history.append({"role": "user", "content": user_arg})
+
+    # Build combined prompt from history
+    messages = [item["content"] for item in st.session_state.history]
+    # Join as a single string
+    prompt_text = "\n".join(messages)
+
+    # Call Gemini API correctly
+    response = st.session_state.client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt_text
+    )
+
+    ai_text = response.text
+    st.session_state.history.append({"role": "assistant", "content": ai_text})
+
+# Display the debate so far
+st.write("### Debate Transcript")
+for msg in st.session_state.history:
+    if msg["role"] == "user":
+        st.markdown(f"**You:** {msg['content']}")
+    elif msg["role"] == "assistant":
+        st.markdown(f"**AI:** {msg['content']}")
